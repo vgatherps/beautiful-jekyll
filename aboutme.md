@@ -1,16 +1,13 @@
 ---
 layout: page
 title: About me
-subtitle: Why you'd want to go on a date with me
+permalink: /aboutme/
 ---
 
-My name is Inigo Montoya. I have the following qualities:
+I work on and write about high performance computing and cpu architecture.
 
-- I rock a great mustache
-- I'm extremely loyal to my family
+### Contact me
 
-What else do you need?
+[My public key can be found here](https://pgp.mit.edu/pks/lookup?op=get&search=0xFD02E0A649B3DCE5)
 
-### my history
-
-To be honest, I'm having some trouble remembering right now, so why don't you just watch [my movie](http://en.wikipedia.org/wiki/The_Princess_Bride_%28film%29) and it will answer **all** your questions.
+[vgatherps@gmail.com](vgatherps@gmail.com)
