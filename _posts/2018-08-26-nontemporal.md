@@ -6,13 +6,11 @@ toc: true
 ---
 
 Have you ever looked at code reading/writing to a large or infrequently used datastructure and thought "What a waste of the cache?".
-If so, 
+Look no further than nontemporal memory operations for all your cache-bypassing needs.
 
 ### Nontemporal memory access in intel-x86
-Modern x86 cpus come with the ability to store, and in some cases load, past the cache. The memory access instructions
-usually go by nontemporal stores/loads, but sometimes go by streaming stores/loads. Having the ability to manage cache usage in
-such a fashion is extremely helpful when dealing with large datasets that don't reside in the cache, or accessing infrequently-accessed
-memory without polluting the cache.
+Modern x86 chips contain load and store operations which completely bypass the cache, usually described as nontemporal
+memory operations.
 
 Nontemporal loads require that one is loading from write-combining memory, which requires a kernel module to easily access
 in linux userspace. For this article, I'll just focus on nontemporal stores and later talk about the module and ways to use
