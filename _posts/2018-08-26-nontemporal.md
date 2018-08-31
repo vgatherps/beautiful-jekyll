@@ -33,7 +33,7 @@ and therefore won't pollute the cache. Our benchmark loop will be:
 ``` c
 uint64_t run_timer_loop(void) {
 
-    force_load(&test_variable);
+    shuffle_list();
 
     mfence();
 
@@ -48,16 +48,16 @@ uint64_t run_timer_loop(void) {
     mfence();
 
     uint64_t start = rdtscp();
-    force_load(&test_variable);
+    iterate_list();
     uint64_t end = rdtscp();
 }
 ```
-We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time reloading a variable.
+We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time iterating a shuffed linked list <sup><a href="#fnlist" id="ref_list">2</a></sup>.
 The results are:
 ![write_allocate]({{ "/img/write_allocate.png" }})
 
-This is what we hoped for - write allocation from normal stores evicts our variable from the cache, but nontemporal
-stores don't write-allocate and hence don't evict our variable. If this weren't true, none of this would really be worth anything.
+This is what we hoped for - write allocation from normal stores evicts our list from the cache, but nontemporal
+stores don't write-allocate and hence don't evict our list. If this weren't true, none of this would really be worth anything.
 The results might seem obvious, but it's worth confirming that nontemporal stores truly behave as expected on standard instead of
 write-combining memory.
 
@@ -130,3 +130,5 @@ the nontemporal stores complete, they simply just stall.
 TODO, tl;dr is that you better write 64 bytes at once nontemporally
 
 <sup id="fnsse">1. Nontemporal stores were introduced in SSE, and loads in SSE 4.1<a href="#ref_sse" title="Jump back to footnote 1 in the text.">↩</a></sup> 
+
+<sup id="fnlist">2. Iterating a list help reduce variability by having to hit multiple lines in a prefetcher-invisible way<a href="#ref_list" title="Jump back to footnote 2 in the text.">↩</a></sup> 
