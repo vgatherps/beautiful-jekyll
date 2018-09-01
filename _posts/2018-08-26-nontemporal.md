@@ -51,7 +51,7 @@ uint64_t run_timer_loop(void) {
 ```
 We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time iterating a shuffed linked list <sup><a href="#fnlist" id="ref_list">2</a></sup>.
 The results are:
-![write_allocate]({{ "/img/write_allocate.png" }})
+<a id="ref_wal">![write_allocate]({{ "/img/write_allocate.png" }})</a>
 
 This is what we hoped for - write allocation from normal stores evicts our list from the cache, but nontemporal
 stores don't write-allocate and hence don't evict our list. If this weren't true, none of this would really be worth anything.
@@ -207,14 +207,15 @@ void process_message(const message &m) {
     cpy_message(m, cpy_to);
 #endif
 
-   process_message_farther(m, lookup_map[m.id]);
+   process_message_more(m, lookup_map[m.id]);
 }
 ```
 
 We'll adjust the number of ids in the map (and in the message) and see how each performs. The results are:
 ![example]({{ "/img/example.png" }})
 
-Exactly as we hoped. The nontemporal operations reduce cache pressure in the pointer-chasing tree lookup and we see a performance improvement.
+The nontemporal operations reduce cache pressure in the pointer-chasing tree lookup and we see a performance improvement <sup><a href="#fnsan" id="ref_san">3</a></sup>. 
+Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it's nice to confirm in a psuedo-real application.
 Hopefully, this was enough to demonstrate that nontemporal operations can truly have a use in high performance applications, and we'll see how
 much more one can use them for when we can load past the cache as well.
 
@@ -224,3 +225,5 @@ much more one can use them for when we can load past the cache as well.
 <sup id="fnsse">1. Nontemporal stores were introduced in SSE, and loads in SSE 4.1<a href="#ref_sse" title="Jump back to footnote 1 in the text.">↩</a></sup> 
 
 <sup id="fnlist">2. Iterating a list help reduce variability by having to hit multiple lines in a prefetcher-invisible way<a href="#ref_list" title="Jump back to footnote 2 in the text.">↩</a></sup> 
+
+<sup id="fnsan">3. One can run a sanity check by reducing the size of the buffer and seeing that it removes the cache advantage nontemporal stores have<a href="#ref_san" title="Jump back to footnote 3 in the text.">↩</a></sup> 
