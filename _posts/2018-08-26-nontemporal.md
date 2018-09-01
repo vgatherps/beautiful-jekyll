@@ -20,8 +20,7 @@ nontemporal loads as well
 
 While the Intel documentation is flush with details of how normal stores work, much less attention is given to the characteristics
 of nontemporal stores. As a result, most of the findings here are inferred from timing data.
-The full code is available [in this repo](https://github.com/vgatherps/nontemporal_stores), test features and size
-are `#define` gated.
+The full code is available [in this repo](https://github.com/vgatherps/nontemporal_stores).
 
 #### Basic cache tests
 
