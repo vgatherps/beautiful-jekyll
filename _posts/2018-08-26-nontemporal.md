@@ -161,6 +161,9 @@ We initiate a series of nontemporal stores (possibly to partial cache lines), an
 As expected, writing partial cache lines seriously hurts performance:
 ![write_combine]({{ "/img/write_combine.png" }})
 
+It's worth noting that the cpu only has a limited amount of write combining buffers, so in almost all cases one should immediately write lines
+without doing any other stores between.
+
 ### What can we do with this?
 
 Unfortunately, there's not a whole lot that we can do with just stores on a single thread.
