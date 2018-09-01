@@ -1,14 +1,12 @@
 ---
 layout: post
-title: Nontemporal Memory Access, part 1
+title: Optimizing Cache Usage with Nontemporal Memory Access, part 1
 subtitle: Nontemporal stores
 toc: true
 ---
 
 Have you ever looked at code reading/writing to a large or infrequently used datastructure and thought "What a waste of the cache?".
 Look no further than nontemporal memory operations for all your cache-bypassing needs.
-
-Still in progress, but will still contain interesting code and charts while I'm battling my nemesis web-dev trying to make this pretty
 
 ### Nontemporal memory access in intel-x86
 Modern x86 chips <sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations which completely bypass the cache, usually described as nontemporal
@@ -115,19 +113,114 @@ We can run a test trying each combination of NT_LINES and LINES from 0 to 100, i
 
 The results of that don't point to a single cliff or pointing performance gun, but confirm some rather expected results:
 
-  * For data in the cache, we can basically store at full rate - the store buffer can clear faster than we can submit
-  * Nontemporal stores have some performance penalty when executing many. In this test, we must write the whole line nontemporally which worsens throughput problems
+  * The costs scale about linearly with the number of stores in either dimension, and there's no performance wall or major stall
+  * Nontemporal stores have some slight throughput penalty over normal store operations, albeit for rather limited store sequences
 
 Importantly, there doesn't seem to be any cost difference to subsequent stores after a series of nontemporal stores is executed. Contrast this with the case where
-we omit an sfence (more on this later, but enforces store ordering) between the nontemporal and temporal stores:
-![normal_sfence]({{ "/img/nontemporal_sfence_d1.png" }})
+we emit an sfence (more on this later, but enforces store ordering) between the nontemporal and temporal stores:
+<a id="fence">![normal_sfence]({{ "/img/nontemporal_sfence_d1.png" }})</a>
 
-This won't be relevant except when writing multicore code, but this is a great example of blocking the store buffer. Since stores can't leave the buffer until
-the nontemporal stores complete, they simply just stall.
+This won't be relevant except when writing multicore code, but this is a great example of what happens when nontemporal stores block normal stores.
+Eventually, normal stores can't issue any more since the store buffer fills up and the processor just stalls.
 
 #### Write-combining buffers
 
-TODO, tl;dr is that you better write 64 bytes at once nontemporally
+Write combining buffers exist on the cpu to help coalesce stores into a single operation. On normal stores, this allows reads-for-ownership to by coalesced
+on consecutive stores to the cache line, but otherwise is not fundamental to performance. For nontemporal stores, they play a much more fundamental role.
+
+The memory bus will only transact in 8 or 64 byte blocks, so store blocks that don't write an entire cache line will themselves get split into many
+bus transactions. One should must ensure that whenever writing data nontemporally, the whole cache line is written to in a block. We can run some benchmarks
+on what sort of leeway one has when defining 'in a block', but first let's see how bad it is for performance to run many.
+
+For this benchmark, we'll be running this code in the inner loop:
+
+``` c
+void force_nt_store(cache_line *a) {
+    __m128i zeros = {0, 0}; // chosen to use zeroing idiom;
+    // do 4 stores to hit whole cache line
+    __asm volatile("movntdq %0, (%1)\n\t"
+#if BYTES > 16
+                   "movntdq %0, 16(%1)\n\t"
+#endif
+#if BYTES > 32
+                   "movntdq %0, 32(%1)\n\t"
+#endif
+#if BYTES > 48
+                   "movntdq %0, 48(%1)"
+#endif
+                   :
+                   : "x" (zeros), "r" (&a->vec_val)
+                   : "memory");
+}
+ 
+uint64_t run_timer_loop(void) {
+
+    mfence();
+    uint64_t start = rdtscp();
+
+    for (int i = 0; i < 32; i++) {
+        force_nt_store(&large_buffer[i]);
+    }
+
+    mfence();
+
+    uint64_t end = rdtscp();
+}
+```
+
+We initiate a series of nontemporal stores (possibly to partial cache lines), and then issue a strong fence to time how long they take to complete.
+As expected, writing partial cache lines seriously hurts performance:
+
+![write_combine]({{ "/img/write_combine.png" }})
+
+### What can we do with this?
+
+Since we'll need a special kernel module for performing proper nontemporal reads, there's not a whole lot that we can do with this.
+Nontemporal stores could be useful for writing to low-priority threads on a different socket, but ordering via fences and <a href="#fence">the performance implications</a>
+of them are tricky enough to deserve their own article. For the sake of this article, I'll write a fairly contrived example but the juicy applications don't come until we've got nontemporal
+loads and multicore ordering sorted out.
+
+Consider this situation: One has some function which receives a long message containing a user ID, looks up that user in some datastructure,
+and forwards the result on to some different processing pipeline.
+Furthermore, one must keep the last 200MB of received messages in a buffer to dump upon failure. We'll benchmark this scenario and see how using nontemporal stores can greatly reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
+
+``` c++
+struct message {
+    uint64_t id;
+    char data[1024*8 - sizeof(uint64_t)];
+};
+
+std::map<uint64_t, uint64_t> lookup_map;
+std::vector<message> message_buffer;
+size_t message_buffer_ind;
+
+void process_message(const message &m) {
+
+    message &cpy_to = message_buffer[message_buffer_ind];
+    message_buffer_ind++;
+    if (message_buffer_ind == message_buffer.size()) {
+        message_buffer_ind = 0;
+    }
+
+#ifdef NONTEMPORAL_COPY   
+    nontemporal_cpy_message(m, cpy_to);
+#else
+    cpy_message(m, cpy_to);
+#endif
+
+   process_message_farther(m, lookup_map[m.id]);
+}
+```
+
+We'll adjust the number of ids in the map (and in the message) and see how each performs. The results are:
+![example]({{ "/img/example.png" }})
+
+Exactly as we hoped. The nontemporal operations reduce cache pressure in the pointer-chasing tree lookup and we see a performance improvement.
+Hopefully, this was enough to demonstrate that nontemporal operations can truly have a use in high performance applications, and we'll see how
+much more one can use them for when we can load past the cache as well.
+
+
+
 
 <sup id="fnsse">1. Nontemporal stores were introduced in SSE, and loads in SSE 4.1<a href="#ref_sse" title="Jump back to footnote 1 in the text.">↩</a></sup> 
 
