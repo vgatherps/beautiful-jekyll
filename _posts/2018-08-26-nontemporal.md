@@ -9,12 +9,11 @@ Have you ever looked at code reading/writing to a large or infrequently used dat
 Look no further than nontemporal memory operations for all your cache-bypassing needs.
 
 ### Nontemporal memory access in intel-x86
-Modern x86 chips <sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations which completely bypass the cache, usually described as nontemporal
+Modern x86 chips <sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations that completely bypass the cache, usually described as nontemporal
 memory operations. 
 
-Nontemporal loads require that one is loading from write-combining memory, which requires a kernel module to easily access
-in linux userspace. For this article, I'll just focus on nontemporal stores and later talk about the module and ways to use
-nontemporal loads as well
+Since nontemporal loads require that one is loading from write-combining memory, something not readily available in userspace,
+I'll just focus on nontemporal stores and later talk about the module and ways to use nontemporal loads.
 
 ### Mechanics of nontemporal stores
 
@@ -49,14 +48,13 @@ uint64_t run_timer_loop(void) {
     uint64_t end = rdtscp();
 }
 ```
-We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time iterating a shuffed linked list <sup><a href="#fnlist" id="ref_list">2</a></sup>.
+We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time iterating a shuffed linked list.<sup><a href="#fnlist" id="ref_list">2</a></sup>
 The results are:
 <a id="ref_wal">![write_allocate]({{ "/img/write_allocate.png" }})</a>
 
-This is what we hoped for - write allocation from normal stores evicts our list from the cache, but nontemporal
-stores don't write-allocate and hence don't evict our list. If this weren't true, none of this would really be worth anything.
-The results might seem obvious, but it's worth confirming that nontemporal stores truly behave as expected on standard instead of
-write-combining memory.
+As one would expect, write allocation from normal stores evicts our list from the cache, but nontemporal
+stores don't write-allocate and hence don't evict our list. The results might seem obvious, but it's worth confirming
+that there aren't unexpected interactions between the the cache system and nontemporal stores.
 
 #### Interactions with normal stores
 
@@ -65,25 +63,17 @@ is important since nontemporal stores have a huge, albeit usually unobserved lat
 normal store behavior outside of cases with hardware fences, one needs to be much more careful regarding their use as opposed to the case
 where the stores simply disappear off into the memory bus.
 
-To test this, we'll execute a series of nontemporal stores before a series of temporal stores, and measure any interference or performance impact. The inner timing code we run will be:
+To test this, we'll execute a series of nontemporal stores before a series of normal stores and measure any interference or performance impact. The inner timing code we run will be:
 
 ``` c
 uint64_t run_timer_loop(void) {
 
     for (int i = 0; i < LINES; i++) {
-#ifndef LINES_IN_CACHE
-        clflush(&large_buffer[i]);
-#else
         force_load(&large_buffer[i]);
-#endif
     }
 
     for (int i = 0; i < LINES; i++) {
-#ifndef NT_LINES_IN_CACHE
         clflush(&large_nontemporal_buffer[i]);
-#else
-        force_load(&large_nontemporal_buffer[i]);
-#endif
     }
 
     mfence();
@@ -101,42 +91,42 @@ uint64_t run_timer_loop(void) {
     // while rdtscp 'waits' for all preceding instructions to complete,
     // it does not wait for stores to complete as in be visible to
     // all other cores or the L3, but for the instruction to be retired
-    // this makes it easy to benchmark the visible effects of nontemporal stores
-    // on our stalls
+    // this makes it easy to benchmark the visible effects of
+    // nontemporal stores on normal stores and look for stalls
     uint64_t end = rdtscp();
 }
 ```
 
-We can run a test trying each combination of NT_LINES and LINES from 0 to 100, increments of 5 each. The results are:
+We can run a test trying each combination of NT_LINES and LINES from 0 to 100, increments of 5 each.<sup><a id="ref_test" href="#fntest">3</a></sup> The results are:
 ![normal_basic]({{ "/img/nontemporal_basic.png" }})
 
-The results of that don't point to a single cliff or pointing performance gun, but confirm some rather expected results:
+The results confirm what one would expect:
 
-  * The costs scale about linearly with the number of stores in either dimension, and there's no performance wall or major stall
+  * Since nontemporal stores are unordered with respect to other stores, they don't prevent normal stores from completing
+  * The costs scale approximately linearly with the number of stores in either dimension, and there's no performance wall or major stall
   * Nontemporal stores have some slight throughput penalty over normal store operations, albeit for rather limited store sequences
 
 Importantly, there doesn't seem to be any cost difference to subsequent stores after a series of nontemporal stores is executed. Contrast this with the case where
-we emit an sfence (more on this later, but enforces store ordering) between the nontemporal and temporal stores:
+we execute and sfence instruction <sup><a id="ref_sfence_exp" href="#fnsfence_exp">4</a></sup> between the nontemporal and temporal stores:
 <a id="fence">![normal_sfence]({{ "/img/nontemporal_sfence_d1.png" }})</a>
 
 This won't be relevant except when writing multicore code, but this is a great example of what happens when nontemporal stores block normal stores.
 Eventually, normal stores can't issue any more since the store buffer fills up and the processor just stalls.
 
-#### Write-combining buffers
+#### Write combining buffers
 
-Write combining buffers exist on the cpu to help coalesce stores into a single operation. On normal stores, this allows reads-for-ownership to by coalesced
-on consecutive stores to the cache line, but otherwise is not fundamental to performance. For nontemporal stores, they play a much more fundamental role.
+Write combining buffers exist on the cpu to help coalesce stores into a single operation. On normal stores, this allows reads-for-ownership coalesce
+for consecutive stores to the cache line, but otherwise is not fundamental to performance. For nontemporal stores, they play a much more fundamental role.
 
-The memory bus will only transact in 8 or 64 byte blocks, so store blocks that don't write an entire cache line will themselves get split into many
-bus transactions. One should must ensure that whenever writing data nontemporally, the whole cache line is written to in a block. We can run some benchmarks
-on what sort of leeway one has when defining 'in a block', but first let's see how bad it is for performance to run many.
+The memory bus will only transact in 8 or 64 byte blocks, so store blocks that don't write an entire cache line must split into many smaller transactions.
+One should must ensure that whenever writing data nontemporally, the whole cache line is written at once.<sup><a id="ref_block" href="#fnblock">5</a></sup>
+We can get some basic idea of how bad this is with the following benchmark:
 
-For this benchmark, we'll be running this code in the inner loop:
+We'll run this code in the inner loop:
 
 ``` c
 void force_nt_store(cache_line *a) {
     __m128i zeros = {0, 0}; // chosen to use zeroing idiom;
-    // do 4 stores to hit whole cache line
     __asm volatile("movntdq %0, (%1)\n\t"
 #if BYTES > 16
                    "movntdq %0, 16(%1)\n\t"
@@ -169,19 +159,20 @@ uint64_t run_timer_loop(void) {
 
 We initiate a series of nontemporal stores (possibly to partial cache lines), and then issue a strong fence to time how long they take to complete.
 As expected, writing partial cache lines seriously hurts performance:
-
 ![write_combine]({{ "/img/write_combine.png" }})
 
 ### What can we do with this?
 
-Since we'll need a special kernel module for performing proper nontemporal reads, there's not a whole lot that we can do with this.
+Unfortunately, there's not a whole lot that we can do with just stores on a single thread.
 Nontemporal stores could be useful for writing to low-priority threads on a different socket, but ordering via fences and <a href="#fence">the performance implications</a>
-of them are tricky enough to deserve their own article. For the sake of this article, I'll write a fairly contrived example but the juicy applications don't come until we've got nontemporal
-loads and multicore ordering sorted out.
+of the required fences are tricky enough to deserve their own article.
+For the sake of this article, I'll write a fairly contrived example but the interesting applications don't come until we
+can access nontemporal loads and have a good multicore story
 
-Consider this situation: One has some function which receives a long message containing a user ID, looks up that user in some datastructure,
+Consider this situation: You have some function which receives a long message containing a user ID, looks up that user in some datastructure,
 and forwards the result on to some different processing pipeline.
-Furthermore, one must keep the last 200MB of received messages in a buffer to dump upon failure. We'll benchmark this scenario and see how using nontemporal stores can greatly reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
+Furthermore, you must keep the last 200MB of received messages in a buffer to dump upon a rare failure case.
+We'll benchmark this scenario and see how using nontemporal stores can greatly reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
 
 ``` c++
 struct message {
@@ -214,16 +205,20 @@ void process_message(const message &m) {
 We'll adjust the number of ids in the map (and in the message) and see how each performs. The results are:
 ![example]({{ "/img/example.png" }})
 
-The nontemporal operations reduce cache pressure in the pointer-chasing tree lookup and we see a performance improvement <sup><a href="#fnsan" id="ref_san">3</a></sup>. 
-Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it's nice to confirm in a psuedo-real application.
-Hopefully, this was enough to demonstrate that nontemporal operations can truly have a use in high performance applications, and we'll see how
-much more one can use them for when we can load past the cache as well.
-
-
+The nontemporal operations reduce cache pressure in the pointer-chasing tree lookup and we see a performance improvement.<sup><a href="#fnsan" id="ref_san">6</a></sup>
+Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is good to confirm in a psuedo-real application.
+Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications.
+With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
 
 
 <sup id="fnsse">1. Nontemporal stores were introduced in SSE, and loads in SSE 4.1<a href="#ref_sse" title="Jump back to footnote 1 in the text.">↩</a></sup> 
-
+<br>
 <sup id="fnlist">2. Iterating a list help reduce variability by having to hit multiple lines in a prefetcher-invisible way<a href="#ref_list" title="Jump back to footnote 2 in the text.">↩</a></sup> 
-
-<sup id="fnsan">3. One can run a sanity check by reducing the size of the buffer and seeing that it removes the cache advantage nontemporal stores have<a href="#ref_san" title="Jump back to footnote 3 in the text.">↩</a></sup> 
+<br>
+<sup id="fntest">3. There are a huge set of variations of this to test - nontemporal store for lines in L1? L2? L3? Normal stores to lines out of cache? I don't want to spam this with minor variations<a href="#ref_sfence_exp" title="Jump back to footnote 3 in the text.">↩</a></sup> 
+<br>
+<sup id="fnsfence_exp">4. sfence enforces ordering between stores, but is weaker than mfence in that it doesn't enfore store-load ordering. In practice this means it has no effect on normal stores, and prevents normal stores from leaving the store buffer as long as a nontemporal store is still in flight<a href="#ref_sfence_exp" title="Jump back to footnote 4 in the text.">↩</a></sup> 
+<br>
+<sup id="fnblock">5. I haven't run benchmarks on what constitutes a block, but almost all sensible cases will be in a memcpy-like setting where the stores are issued as fast as possible<a href="#ref_block" title="Jump back to footnote 5 in the text.">↩</a></sup> 
+<br>
+<sup id="fnsan">6. One can run a sanity check by reducing the size of the buffer and seeing that it removes the cache advantage nontemporal stores have<a href="#ref_san" title="Jump back to footnote 6 in the text.">↩</a></sup> 
