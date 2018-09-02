@@ -173,7 +173,8 @@ Nontemporal stores will evict lines from the cache if present, effectively causi
 Another serious flaw is that nontemporal stores do not forward to loads - any loads to addresses with a nontemporal store in flight
 will simply stall until the store is complete, and then load from ram.
 
-These instructions should only be used with care and benchmarking+profiling of an application beforehand. Make sure that you consistently
+These instructions should only be used with care and benchmarking+profiling of an application beforehand. You're explicitely
+bypassing the single most important hardware mechanism for making software run fast. Make sure that you consistently
 have a cache problem, and that nontemporal stores can help it, before having your software use them.
 
 ### What can we do with just this?
