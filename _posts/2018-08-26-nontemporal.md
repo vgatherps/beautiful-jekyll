@@ -213,7 +213,7 @@ old messages, the results for increasing IDs are:
 We can plot the performance difference between the normal and nontemporal stores for varying buffer sizes as well:
 ![diff_heat]({{ "/img/diff_heat.png" }})
 
-As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.<sup><a href="#fnsan" id="ref_san">6</a></sup>
+As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.
 Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is good to confirm in a psuedo-real application.
 Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications.
 With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
