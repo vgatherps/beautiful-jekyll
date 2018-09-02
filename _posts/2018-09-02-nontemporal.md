@@ -4,7 +4,7 @@ title: Optimizing Cache Usage With Nontemporal Accesses
 subtitle: Nontemporal stores
 ---
 
-Have you ever looked at code reading/writing to a large or infrequently used datastructure and thought "What a waste of the cache?".
+Have you ever looked at code reading/writing to a large or infrequently used datastructure and thought "What a waste of the cache?"
 Look no further than nontemporal memory operations for all your cache-bypassing needs.
 
 ### Nontemporal memory access in Intel x86
@@ -12,7 +12,7 @@ Modern x86 chips<sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and 
 memory operations. These instructions have some desireable peroperties for cache control, mainly:
 
   * Will not allocate new lines in the cache, instead loading/storing directly to ram
-  * Are not ordered with regard to other loads/stores, giving the cpu more flexibility in hiding memory latency
+  * Are not ordered with regard to other loads/stores, giving the CPU more flexibility in hiding memory latency
 
 Unfortunately, nontemporal loads only operate on memory mapped as write-combining, something not readily available in userspace.
 For now I'll just focus on nontemporal stores and later talk about the module and ways to use nontemporal loads.
@@ -52,20 +52,19 @@ uint64_t run_timer_loop(void) {
     uint64_t end = rdtscp();
 }
 ```
-We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time iterating a shuffed linked list.<sup><a href="#fnlist" id="ref_list">2</a></sup>
+We'll try writing between 0 and 6000 cache lines of either normal stores or nontemporal stores, and time iterating a shuffled linked list.<sup><a href="#fnlist" id="ref_list">2</a></sup>
 The results are:
 <a id="ref_wal">![write_allocate]({{ "/img/write_allocate.png" }})</a>
 
 As one would expect, write allocation from normal stores evicts our list from the cache, but nontemporal
 stores don't write-allocate and hence don't evict our list. The results might seem obvious, but it's worth confirming
-that there aren't unexpected interactions between the the cache system and nontemporal stores.
+that there aren't unexpected interactions between the cache system and nontemporal stores.
 
 #### Interactions with normal stores
 
 Nontemporal stores are documented as being unordered with respect to other stores as a performance optimization. How this plays out in practice
-is important since nontemporal stores have a huge, albeit usually unobserved latency. If it's possible for nontemporal stores to block
-normal store behavior outside of cases with hardware fences, one needs to be much more careful regarding their use as opposed to the case
-where the stores simply disappear off into the memory bus.
+is important since nontemporal stores have a huge, albeit usually unobserved latency. If in-flight nontemporal stores can occupy resources
+that would otherwise be used by normal operations, the processor would be unable to hide their latency.
 
 To test this, we'll execute a series of nontemporal stores before a series of normal stores and measure any interference or performance impact. The inner timing code we run will be:
 
