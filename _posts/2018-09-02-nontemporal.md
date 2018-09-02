@@ -166,6 +166,16 @@ We initiate a series of nontemporal stores and issue a strong fence to time how 
 As expected, writing partial cache lines seriously hurts performance:
 ![write_combine]({{ "/img/write_combine.png" }})
 
+#### Downsides and performance traps
+
+Using nontemporal stores requires a lot of caution and knowledge about the memory access characteristics of your software.
+Nontemporal stores will evict lines from the cache if present, effectively causing the same thing you would be trying to prevent.
+Another serious flaw is that nontemporal stores do not forward to loads - any loads to addresses with a nontemporal store in flight
+will simply stall until the store is complete, and then load from ram.
+
+These instructions should only be used with care and benchmarking+profiling of an application beforehand. Make sure that you consistently
+have a cache problem, and that nontemporal stores can help it, before having your software use them.
+
 ### What can we do with just this?
 
 Unfortunately, there's not a whole lot that we can do with just stores on a single thread.
