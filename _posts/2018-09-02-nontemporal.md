@@ -9,10 +9,15 @@ Look no further than nontemporal memory operations for all your cache-bypassing 
 
 ### Nontemporal memory access in Intel x86
 Modern x86 chips<sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations that completely bypass the cache, usually described as nontemporal
-memory operations. 
+memory operations. These instructions have some desireable peroperties for cache control, mainly:
 
-Since nontemporal loads require that one is loading from write-combining memory, something not readily available in userspace,
-I'll just focus on nontemporal stores and later talk about the module and ways to use nontemporal loads.
+  * Will not allocate new lines in the cache, instead loading/storing directly to ram
+  * Are not ordered with regard to other loads/stores, giving the cpu more flexibility in hiding memory latency
+
+Unfortunately, nontemporal loads only operate on memory mapped as write-combining, something not readily available in userspace.
+For now I'll just focus on nontemporal stores and later talk about the module and ways to use nontemporal loads.
+We'll get some basic benchmarks of how nontemporal stores interact with the cache and the normal store ordering system, and
+then try a small example showing how nontemporal stores can prevent cache pollution in practice.
 
 ### Mechanics of nontemporal stores
 
@@ -161,9 +166,6 @@ uint64_t run_timer_loop(void) {
 We initiate a series of nontemporal stores and issue a strong fence to time how long they take to complete.
 As expected, writing partial cache lines seriously hurts performance:
 ![write_combine]({{ "/img/write_combine.png" }})
-
-It's worth noting that the cpu only has a limited amount of write combining buffers, so in almost all cases one should immediately write lines
-without doing any other stores between.
 
 ### What can we do with just this?
 
