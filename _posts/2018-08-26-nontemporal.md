@@ -1,8 +1,7 @@
 ---
 layout: post
-title: Optimizing Cache Usage with Nontemporal Memory Access, part 1
+title: Optimizing Cache Usage With Nontemporal Accesses
 subtitle: Nontemporal stores
-toc: true
 ---
 
 Have you ever looked at code reading/writing to a large or infrequently used datastructure and thought "What a waste of the cache?".
@@ -104,7 +103,7 @@ The results confirm what one would expect:
 
   * Since nontemporal stores are unordered with respect to other stores, they don't prevent normal stores from completing
   * The costs scale approximately linearly with the number of stores in either dimension, and there's no performance wall or major stall
-  * Nontemporal stores have some slight throughput penalty over normal store operations, albeit for rather limited store sequences
+  * Nontemporal stores have some <a href = "https://sites.utexas.edu/jdm4372/2018/01/01/notes-on-non-temporal-aka-streaming-stores/">slight throughput penalty</a> over normal store operations
 
 Importantly, there doesn't seem to be any cost difference to subsequent stores after a series of nontemporal stores is executed. Contrast this with the case where
 we execute and sfence instruction <sup><a id="ref_sfence_exp" href="#fnsfence_exp">4</a></sup> between the nontemporal and temporal stores:
@@ -175,7 +174,7 @@ can access nontemporal loads and have a good multicore story
 
 Consider this situation: You have some function which receives a long message containing a user ID, looks up that user in some datastructure,
 and forwards the result on to some different processing pipeline.
-Furthermore, you must keep the last N received messages in a buffer to dump upon a rare failure case.
+Furthermore, you must keep the last N received messages in a buffer to dump upon a rare failure case, enough message such that writing them pollutes your cache.
 We'll benchmark this scenario and see how using nontemporal stores can greatly reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
 
 ``` c++
@@ -215,17 +214,20 @@ We can plot the performance difference between the normal and nontemporal stores
 
 As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.
 Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is good to confirm in a psuedo-real application.
-Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications.
+Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications
+-
+any datastructure which is written much more frequently then it is read would be a good candidate.<sup><a id="ref_test" href="#fntest">6</a></sup>
 With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
 
 
-<sup id="fnsse">1. Nontemporal stores were introduced in SSE, and loads in SSE 4.1<a href="#ref_sse" title="Jump back to footnote 1 in the text.">↩</a></sup> 
+<sup id="fnsse">1. Nontemporal stores were introduced in SSE, and loads in SSE 4.1<a href="#ref_sse" title="Jump back to footnote 1 in the text.">↩</a></sup>
 <br>
-<sup id="fnlist">2. Iterating a list help reduce variability by having to hit multiple lines in a prefetcher-invisible way<a href="#ref_list" title="Jump back to footnote 2 in the text.">↩</a></sup> 
+<sup id="fnlist">2. Iterating a list help reduce variability by having to hit multiple lines in a prefetcher-invisible way<a href="#ref_list" title="Jump back to footnote 2 in the text.">↩</a></sup>
 <br>
-<sup id="fntest">3. There are a huge set of variations of this to test - nontemporal store for lines in L1? L2? L3? Normal stores to lines out of cache? I don't want to spam this with minor variations<a href="#ref_sfence_exp" title="Jump back to footnote 3 in the text.">↩</a></sup> 
+<sup id="fntest">3. There are a huge set of variations of this to test - nontemporal store for lines in L1? L2? L3? Normal stores to lines out of cache? I don't want to spam this with minor variations of the same benchmark<a href="#ref_sfence_exp" title="Jump back to footnote 3 in the text.">↩</a></sup>
 <br>
-<sup id="fnsfence_exp">4. sfence enforces ordering between stores, but is weaker than mfence in that it doesn't enfore store-load ordering. In practice this means it has no effect on normal stores, and prevents normal stores from leaving the store buffer as long as a nontemporal store is still in flight<a href="#ref_sfence_exp" title="Jump back to footnote 4 in the text.">↩</a></sup> 
+<sup id="fnsfence_exp">4. sfence enforces ordering between stores, but is weaker than mfence in that it doesn't enfore store-load ordering. In practice this means it has no effect on normal stores, and prevents normal stores from leaving the store buffer as long as a nontemporal store is still in flight<a href="#ref_sfence_exp" title="Jump back to footnote 4 in the text.">↩</a></sup>
 <br>
-<sup id="fnblock">5. I haven't run benchmarks on what constitutes a block, but almost all sensible cases will be in a memcpy-like setting where the stores are issued as fast as possible<a href="#ref_block" title="Jump back to footnote 5 in the text.">↩</a></sup> 
+<sup id="fnblock">5. I haven't run benchmarks on what constitutes a block, but almost all sensible cases will be in a memcpy-like setting where the stores are issued as fast as possible<a href="#ref_block" title="Jump back to footnote 5 in the text.">↩</a></sup>
 <br>
+<sup id="fntest">6. One should run all the <a href="https://github.com/vgatherps/nontemporal_stores">tests from the repo</a>, since results can <a href="https://sites.utexas.edu/jdm4372/2018/01/01/notes-on-non-temporal-aka-streaming-stores/">vary</a> based on the hardware even within a product line<a href="#ref_test" title="Jump back to footnote 6 in the text.">↩</a></sup>
