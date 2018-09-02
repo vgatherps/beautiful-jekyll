@@ -7,7 +7,7 @@ subtitle: Nontemporal stores
 Have you ever looked at code reading/writing to a large or infrequently used datastructure and thought "What a waste of the cache?".
 Look no further than nontemporal memory operations for all your cache-bypassing needs.
 
-### Nontemporal memory access in intel-x86
+### Nontemporal memory access in Intel x86
 Modern x86 chips<sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations that completely bypass the cache, usually described as nontemporal
 memory operations. 
 
