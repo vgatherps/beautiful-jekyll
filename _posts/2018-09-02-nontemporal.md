@@ -200,6 +200,9 @@ void process_message(const message &m) {
 #ifdef NONTEMPORAL_COPY   
     nontemporal_cpy_message(m, cpy_to);
 #else
+    // One can experiment with prefetching here to avoid
+    // problems with RFO on normal stores hitting RAM,
+    // but empirically the CPU prefetcher does a fine job of that already
     cpy_message(m, cpy_to);
 #endif
 
