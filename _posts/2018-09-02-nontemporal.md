@@ -217,6 +217,9 @@ old messages, the results are:
 We can plot the performance difference between the normal and nontemporal stores for varying buffer sizes as well:
 ![diff_heat]({{ "/img/diff_heat.png" }})
 
+And as a sanity check, the same heatmap but for the average number of cycles spent in the lookup table:
+![diff_cycle_heat]({{ "/img/diff_cycle_heat.png" }})
+
 As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.
 Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is useful to confirm in a psuedo-real application.
 Hopefully, this was sufficient to demonstrate that nontemporal operations, even just stores, have a meaningful use in high performance applications.<sup><a id="ref_test" href="#fntest">7</a></sup>
