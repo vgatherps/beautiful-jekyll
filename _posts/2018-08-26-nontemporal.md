@@ -175,7 +175,7 @@ can access nontemporal loads and have a good multicore story
 
 Consider this situation: You have some function which receives a long message containing a user ID, looks up that user in some datastructure,
 and forwards the result on to some different processing pipeline.
-Furthermore, you must keep the last 200MB of received messages in a buffer to dump upon a rare failure case.
+Furthermore, you must keep the last N received messages in a buffer to dump upon a rare failure case.
 We'll benchmark this scenario and see how using nontemporal stores can greatly reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
 
 ``` c++
@@ -206,10 +206,14 @@ void process_message(const message &m) {
 }
 ```
 
-We'll adjust the number of ids in the map (and in the message) and see how each performs. The results are:
+We'll adjust the number of ids in the map (and in the message) and see how each performs. If we store 50MB of
+old messages, the results for increasing IDs are:
 ![example]({{ "/img/example.png" }})
 
-The nontemporal operations reduce cache pressure in the pointer-chasing tree lookup and we see a performance improvement.<sup><a href="#fnsan" id="ref_san">6</a></sup>
+We can plot the performance difference between the normal and nontemporal stores for varying buffer sizes as well:
+![diff_heat]({{ "/img/diff_heat.png" }})
+
+As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.<sup><a href="#fnsan" id="ref_san">6</a></sup>
 Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is good to confirm in a psuedo-real application.
 Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications.
 With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
@@ -225,4 +229,3 @@ With later posts we'll see how useful nontemporal operations are when we can loa
 <br>
 <sup id="fnblock">5. I haven't run benchmarks on what constitutes a block, but almost all sensible cases will be in a memcpy-like setting where the stores are issued as fast as possible<a href="#ref_block" title="Jump back to footnote 5 in the text.">↩</a></sup> 
 <br>
-<sup id="fnsan">6. One can run a sanity check by reducing the size of the buffer and seeing that it removes the cache advantage nontemporal stores have<a href="#ref_san" title="Jump back to footnote 6 in the text.">↩</a></sup> 
