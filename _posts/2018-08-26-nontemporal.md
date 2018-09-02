@@ -128,15 +128,6 @@ We'll run this code in the inner loop:
 void force_nt_store(cache_line *a) {
     __m128i zeros = {0, 0}; // chosen to use zeroing idiom;
 
-#if BYTES == 8 // special case for 8 to try a single small transaction
-    __asm volatile("pxor %%mm0, %%mm0\n\t"
-                   "movntq %%mm0, (%0)\n\t"
-                   :
-                   : "r" (&a->vec_val)
-                   : "memory");
-    return;
-#endif
-
     __asm volatile("movntdq %0, (%1)\n\t"
 #if BYTES > 16
                    "movntdq %0, 16(%1)\n\t"
@@ -167,14 +158,14 @@ uint64_t run_timer_loop(void) {
 }
 ```
 
-We initiate a series of nontemporal stores (possibly to partial cache lines), and then issue a strong fence to time how long they take to complete.
+We initiate a series of nontemporal stores and issue a strong fence to time how long they take to complete.
 As expected, writing partial cache lines seriously hurts performance:
 ![write_combine]({{ "/img/write_combine.png" }})
 
 It's worth noting that the cpu only has a limited amount of write combining buffers, so in almost all cases one should immediately write lines
 without doing any other stores between.
 
-### What can we do with this?
+### What can we do with just this?
 
 Unfortunately, there's not a whole lot that we can do with just stores on a single thread.
 Nontemporal stores could be useful for writing to low-priority threads on a different socket, but ordering via fences and <a href="#fence">the performance implications</a>
