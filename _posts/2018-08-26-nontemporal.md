@@ -127,6 +127,16 @@ We'll run this code in the inner loop:
 ``` c
 void force_nt_store(cache_line *a) {
     __m128i zeros = {0, 0}; // chosen to use zeroing idiom;
+
+#if BYTES == 8 // special case for 8 to try a single small transaction
+    __asm volatile("pxor %%mm0, %%mm0\n\t"
+                   "movntq %%mm0, (%0)\n\t"
+                   :
+                   : "r" (&a->vec_val)
+                   : "memory");
+    return;
+#endif
+
     __asm volatile("movntdq %0, (%1)\n\t"
 #if BYTES > 16
                    "movntdq %0, 16(%1)\n\t"
