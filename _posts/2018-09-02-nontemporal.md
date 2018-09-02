@@ -100,7 +100,7 @@ uint64_t run_timer_loop(void) {
 }
 ```
 
-We can run a test trying each combination of NT_LINES and LINES from 0 to 100, increments of 5 each.<sup><a id="ref_test" href="#fntest">3</a></sup> The results are:
+We can run a test trying each combination of NT_LINES and LINES from 0 to 100, at increments of 5 each.<sup><a id="ref_test" href="#fntest">3</a></sup> The results are:
 ![normal_basic]({{ "/img/nontemporal_basic.png" }})
 
 The results confirm what one would expect:
@@ -109,21 +109,21 @@ The results confirm what one would expect:
   * The costs scale approximately linearly with the number of stores in either dimension, and there's no performance wall or major stall
   * Nontemporal stores have some <a href = "https://sites.utexas.edu/jdm4372/2018/01/01/notes-on-non-temporal-aka-streaming-stores/">slight throughput penalty</a> over normal store operations
 
-Importantly, there doesn't seem to be any cost difference to subsequent stores after a series of nontemporal stores is executed. Contrast this with the case where
-we execute and sfence instruction<sup><a id="ref_sfence_exp" href="#fnsfence_exp">4</a></sup> between the nontemporal and temporal stores:
+Importantly, there doesn't seem to be any additional cost to subsequent stores after a series of nontemporal stores is executed. Contrast this with the case where
+we execute an sfence instruction<sup><a id="ref_sfence_exp" href="#fnsfence_exp">4</a></sup> between the nontemporal and normal stores:
 <a id="fence">![normal_sfence]({{ "/img/nontemporal_sfence_d1.png" }})</a>
 
-This won't be relevant except when writing multicore code, but this is a great example of what happens when nontemporal stores block normal stores.
+This won't be relevant except when writing multicore code, but the previous benchmark is a great example of what happens when nontemporal stores block normal stores.
 Eventually, normal stores can't issue any more since the store buffer fills up and the processor just stalls.
 
 #### Write combining buffers
 
-Write combining buffers exist on the cpu to help coalesce stores into a single operation. On normal stores, this allows reads-for-ownership coalesce
+Write combining buffers exist on the CPU to help coalesce stores into a single operation. On normal stores, this allows reads-for-ownership to coalesce
 for consecutive stores to the cache line, but otherwise is not fundamental to performance. For nontemporal stores, they play a much more fundamental role.<sup><a id="ref_disc" href="#fndisc">5</a></sup>
 
 Since the memory bus on Intel processors will break up transactions smaller than 64 bytes into many smaller transactions, write combining buffers allow
 a set of nontemporal stores to the same line to accumulate until the entire line is written. There's a limited number of these buffers, so
-one should must ensure that whole cache lines are written at once with nontemporal stores.<sup><a id="ref_block" href="#fnblock">6</a></sup>
+one must ensure that whole cache lines are written at once with nontemporal stores.<sup><a id="ref_block" href="#fnblock">6</a></sup>
 We can get some basic idea of how bad this is with the following benchmark:
 
 We'll run this code in the inner loop:
@@ -171,13 +171,13 @@ As expected, writing partial cache lines seriously hurts performance:
 Unfortunately, there's not a whole lot that we can do with just stores on a single thread.
 Nontemporal stores could be useful for writing to low-priority threads on a different socket, but ordering via fences and <a href="#fence">the performance implications</a>
 of the required fences are tricky enough to deserve their own article.
-For the sake of this article, I'll write a fairly contrived example but the interesting applications don't come until we
-can access nontemporal loads and have a good multicore story
+For the sake of this article, I'll write a fairly contrived example; however, the interesting applications don't arise until we
+can access nontemporal loads and have a good multicore story.
 
 Consider this situation: You have some function which receives a long message containing a user ID, looks up that user in some datastructure,
 and forwards the result on to some different processing pipeline.
-Furthermore, you must keep the last N received messages in a buffer to dump upon a rare failure case, enough message such that writing them pollutes your cache.
-We'll benchmark this scenario and see how using nontemporal stores can greatly reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
+Furthermore, you must keep the last N received messages in a buffer to log upon a rare failure case, enough messages such that writing them pollutes your cache.
+We'll benchmark this scenario and see how nontemporal stores reduce the cache pressure of this buffer and keep the lookup datastructure in cache. The basic outline of our test code will be:
 
 ``` c++
 struct message {
@@ -207,18 +207,16 @@ void process_message(const message &m) {
 }
 ```
 
-We'll adjust the number of ids in the map (and in the message) and see how each performs. If we store 50MB of
-old messages, the results for increasing IDs are:
+We'll adjust the number of IDs in the map (and in the message) and see how each performs. If we store 50MB of
+old messages, the results are:
 ![example]({{ "/img/example.png" }})
 
 We can plot the performance difference between the normal and nontemporal stores for varying buffer sizes as well:
 ![diff_heat]({{ "/img/diff_heat.png" }})
 
 As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.
-Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is good to confirm in a psuedo-real application.
-Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications
--
-any datastructure which is written much more frequently then it is read would be a good candidate.<sup><a id="ref_test" href="#fntest">7</a></sup>
+Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is useful to confirm in a psuedo-real application.
+Hopefully, this was sufficient to demonstrate that nontemporal operations, even just stores, have a meaningful use in high performance applications.<sup><a id="ref_test" href="#fntest">7</a></sup>
 With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
 
 
