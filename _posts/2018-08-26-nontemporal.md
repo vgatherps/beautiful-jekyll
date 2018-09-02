@@ -8,7 +8,7 @@ Have you ever looked at code reading/writing to a large or infrequently used dat
 Look no further than nontemporal memory operations for all your cache-bypassing needs.
 
 ### Nontemporal memory access in intel-x86
-Modern x86 chips <sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations that completely bypass the cache, usually described as nontemporal
+Modern x86 chips<sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations that completely bypass the cache, usually described as nontemporal
 memory operations. 
 
 Since nontemporal loads require that one is loading from write-combining memory, something not readily available in userspace,
@@ -106,7 +106,7 @@ The results confirm what one would expect:
   * Nontemporal stores have some <a href = "https://sites.utexas.edu/jdm4372/2018/01/01/notes-on-non-temporal-aka-streaming-stores/">slight throughput penalty</a> over normal store operations
 
 Importantly, there doesn't seem to be any cost difference to subsequent stores after a series of nontemporal stores is executed. Contrast this with the case where
-we execute and sfence instruction <sup><a id="ref_sfence_exp" href="#fnsfence_exp">4</a></sup> between the nontemporal and temporal stores:
+we execute and sfence instruction<sup><a id="ref_sfence_exp" href="#fnsfence_exp">4</a></sup> between the nontemporal and temporal stores:
 <a id="fence">![normal_sfence]({{ "/img/nontemporal_sfence_d1.png" }})</a>
 
 This won't be relevant except when writing multicore code, but this is a great example of what happens when nontemporal stores block normal stores.
@@ -115,10 +115,11 @@ Eventually, normal stores can't issue any more since the store buffer fills up a
 #### Write combining buffers
 
 Write combining buffers exist on the cpu to help coalesce stores into a single operation. On normal stores, this allows reads-for-ownership coalesce
-for consecutive stores to the cache line, but otherwise is not fundamental to performance. For nontemporal stores, they play a much more fundamental role.
+for consecutive stores to the cache line, but otherwise is not fundamental to performance. For nontemporal stores, they play a much more fundamental role.<sup><a id="ref_disc" href="#fndisc">5</a></sup>
 
-The memory bus will only transact in 8 or 64 byte blocks, so store blocks that don't write an entire cache line must split into many smaller transactions.
-One should must ensure that whenever writing data nontemporally, the whole cache line is written at once.<sup><a id="ref_block" href="#fnblock">5</a></sup>
+Since the memory bus on Intel processors will break up transactions smaller than 64 bytes into many smaller transactions, write combining buffers allow
+a set of nontemporal stores to the same line to accumulate until the entire line is written. There's a limited number of these buffers, so
+one should must ensure that whole cache lines are written at once with nontemporal stores.<sup><a id="ref_block" href="#fnblock">6</a></sup>
 We can get some basic idea of how bad this is with the following benchmark:
 
 We'll run this code in the inner loop:
@@ -216,7 +217,7 @@ As we make the message buffer larger, nontemporal operations reduce cache pressu
 Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is good to confirm in a psuedo-real application.
 Hopefully, this was sufficient to demonstrate that nontemporal operations can have a meaningful use in high performance applications
 -
-any datastructure which is written much more frequently then it is read would be a good candidate.<sup><a id="ref_test" href="#fntest">6</a></sup>
+any datastructure which is written much more frequently then it is read would be a good candidate.<sup><a id="ref_test" href="#fntest">7</a></sup>
 With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
 
 
@@ -228,6 +229,8 @@ With later posts we'll see how useful nontemporal operations are when we can loa
 <br>
 <sup id="fnsfence_exp">4. sfence enforces ordering between stores, but is weaker than mfence in that it doesn't enfore store-load ordering. In practice this means it has no effect on normal stores, and prevents normal stores from leaving the store buffer as long as a nontemporal store is still in flight<a href="#ref_sfence_exp" title="Jump back to footnote 4 in the text.">↩</a></sup>
 <br>
-<sup id="fnblock">5. I haven't run benchmarks on what constitutes a block, but almost all sensible cases will be in a memcpy-like setting where the stores are issued as fast as possible<a href="#ref_block" title="Jump back to footnote 5 in the text.">↩</a></sup>
+<sup id="fndisc">5. This is an extremly simplified discussion of write combining buffers, and confusingly different than write combining memory<a href="#ref_disc" title="Jump back to footnote 5 in the text.">↩</a></sup>
 <br>
-<sup id="fntest">6. One should run all the <a href="https://github.com/vgatherps/nontemporal_stores">tests from the repo</a>, since results can <a href="https://sites.utexas.edu/jdm4372/2018/01/01/notes-on-non-temporal-aka-streaming-stores/">vary</a> based on the hardware even within a product line<a href="#ref_test" title="Jump back to footnote 6 in the text.">↩</a></sup>
+<sup id="fnblock">6. I haven't run benchmarks on what constitutes a block, but almost all sensible cases will be in a memcpy-like setting where the stores are issued as fast as possible<a href="#ref_block" title="Jump back to footnote 6 in the text.">↩</a></sup>
+<br>
+<sup id="fntest">7. One should run all the <a href="https://github.com/vgatherps/nontemporal_stores">tests from the repo</a>, since results can <a href="https://sites.utexas.edu/jdm4372/2018/01/01/notes-on-non-temporal-aka-streaming-stores/">vary</a> based on the hardware even within a product line<a href="#ref_test" title="Jump back to footnote 7 in the text.">↩</a></sup>
