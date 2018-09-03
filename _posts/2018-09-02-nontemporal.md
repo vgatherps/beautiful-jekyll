@@ -233,6 +233,7 @@ And as a sanity check, the same heatmap but for the average number of cycles spe
 ![diff_cycle_heat]({{ "/img/diff_cycle_heat.png" }})
 
 As we make the message buffer larger, nontemporal operations reduce cache pressure in the tree lookup and we see a performance improvement.
+Larger trees tend to show less improvement as the tree itself does not fit in the cache and the benchmark does not perform enough iterations to load the whole tree.
 Although this is essentially a re-demonstration of the <a href="#ref_wal">simple write allocation test</a> done earlier, it is useful to confirm in a psuedo-real application.
 Hopefully, this was sufficient to demonstrate that nontemporal operations, even just stores, have a meaningful use in high performance applications.<sup><a id="ref_test" href="#fntest">7</a></sup>
 With later posts we'll see how useful nontemporal operations are when we can load past the cache as well.
