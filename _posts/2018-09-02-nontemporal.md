@@ -174,7 +174,7 @@ Another serious flaw is that nontemporal stores do not forward to loads - any lo
 will simply stall until the store is complete, and then load from ram.
 
 These instructions should only be used with care and benchmarking+profiling of an application beforehand. You're explicitely
-bypassing the single most important hardware mechanism for making software run fast. Make sure that you consistently
+bypassing the single most important modern hardware optimization. Make sure that you consistently
 have a cache problem, and that nontemporal stores can help it, before having your software use them.
 
 ### What can we do with just this?
