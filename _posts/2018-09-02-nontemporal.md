@@ -170,8 +170,9 @@ As expected, writing partial cache lines seriously hurts performance:
 
 Using nontemporal stores requires a lot of caution and knowledge about the memory access characteristics of your software.
 Nontemporal stores will evict lines from the cache if present, effectively causing the same thing you would be trying to prevent.
-Another serious flaw is that nontemporal stores do not forward to loads - any loads to addresses with a nontemporal store in flight
-will simply stall until the store is complete, and then load from ram.
+Further, nontemporal stores do not forward to loads - any loads to addresses with a nontemporal store in flight
+will simply stall until the store is complete, and then load from ram. Finally, subtle characteristics of these instructions
+are different across processors, meaning you have to run benchmarks on all hadware you use.
 
 These instructions should only be used with care and benchmarking+profiling of an application beforehand. You're explicitely
 bypassing the single most important modern hardware optimization. Make sure that you consistently
