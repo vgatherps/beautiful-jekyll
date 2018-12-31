@@ -9,7 +9,7 @@ Look no further than nontemporal memory operations for all your cache-bypassing 
 
 ### Nontemporal memory access in Intel x86
 Modern x86 chips<sup><a href="#fnsse" id="ref_sse">1</a></sup> contain load and store operations that completely bypass the cache, usually described as nontemporal
-memory operations. These instructions have some desireable peroperties for cache control, mainly:
+memory operations. These instructions have some desireable properties for cache control, mainly:
 
   * Will not allocate new lines in the cache, instead loading/storing directly to ram
   * Are not ordered with regard to other loads/stores, giving the CPU more flexibility in hiding memory latency
