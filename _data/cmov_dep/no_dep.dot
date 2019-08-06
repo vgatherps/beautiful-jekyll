@@ -1,0 +1,12 @@
+digraph G {
+  "i" -> "test arr[i]"
+  "test arr[i]" -> "cmov a[i], acc, acc" 
+  "i" -> "i+1"
+  "i+1" -> "test arr[i+1]"
+  "test arr[i+1]" -> "cmov a[i+1], acc, acc"
+  "cmov a[i], acc, acc" -> "cmov a[i+1], acc, acc"
+  "i+1" -> "i+2"
+  "i+2" -> "test arr[i+2]"
+  "test arr[i+2]" -> "cmov a[i+2], acc, acc"
+  "cmov a[i+1], acc, acc" -> "cmov a[i+2], acc, acc"
+}
