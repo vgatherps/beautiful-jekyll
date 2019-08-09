@@ -1,12 +1,12 @@
 digraph G {
-  "i" -> "test arr[i]"
-  "test arr[i]" -> "cmov a[i], acc, acc" 
-  "i" -> "i+1"
-  "i+1" -> "test arr[i+1]"
-  "test arr[i+1]" -> "cmov a[i+1], acc, acc"
-  "cmov a[i], acc, acc" -> "cmov a[i+1], acc, acc"
-  "i+1" -> "i+2"
-  "i+2" -> "test arr[i+2]"
-  "test arr[i+2]" -> "cmov a[i+2], acc, acc"
-  "cmov a[i+1], acc, acc" -> "cmov a[i+2], acc, acc"
+  "j" -> "test arr[j]" [color=red]
+  "test arr[j]" -> "cmov a[j], res" [color=red]
+  "cmov a[j], res" -> "cmov a[j+1], res" [color=red]
+  "j" -> "j+1"
+  "j+1" -> "test arr[j+1]" [color=blue]
+  "test arr[j+1]" -> "cmov a[j+1], res" [color=blue]
+  "cmov a[j+1], res" -> "cmov a[j+2], res" [color=blue]
+  "j+1" -> "j+2"
+  "j+2" -> "test arr[j+2]" [color=green]
+  "test arr[j+2]" -> "cmov a[j+2], res" [color=green]
 }

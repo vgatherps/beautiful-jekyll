@@ -9,12 +9,13 @@ digraph G {
     J1 [label="jne set_incr (untaken)"]
     J2 [label="jne set_incr (untaken)"]
     
-    I1 -> A1
-    I2 -> A2
+    I1 -> A1 [color=red]
     
-    A1 -> J1
-    A2 -> J2
-    
+    A1 -> J1 [color=red]
     I1 -> I2
+    
+    I2 -> A2 [color=blue]
+    A2 -> J2 [color=blue]
+
     I2 -> I3
 }
