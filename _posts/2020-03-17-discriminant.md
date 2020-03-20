@@ -3,11 +3,12 @@ layout: post
 title: Rapidly Distinguishing Between Variable-Layout Messages Using SIMD
 ---
 
-Some years ago, at a now-defunct company, I wrote a nifty SIMD scanner to quickly discover "interesting" fields in a variable layout message format.
-After getting the parse times below a microsecond, I considered my work finished and moved on.
+Some years ago, at a now-defunct company, I wrote a nifty SIMD scanner to quickly discover "interesting" fields in a complex message format.
+After getting the parse time around a microsecond, I considered my work finished and moved on.
 
-Thinking back, I realized most of these messages probably came in some subset of fixed layouts.
-Instead of scanning the whole message, it should be possible to check for a given layout by examining a small subset of bytes.
+Thinking back, I realized most of these messages probably came in some set of fixed layouts instead of being truly dynamic.
+Instead of searching the whole message for individual entries,
+it should be possible to check for a given layout by examining a small subset of bytes.
 Using SIMD would then allow one to check an entire group of layouts in one go.
 
 The full code can be found [here](https://github.com/vgatherps/discriminant)
@@ -19,8 +20,6 @@ Since everybody loves benchmarks, here's a preview of the final results (in cycl
 |----|------|--------|
 |Discriminant|20|330|
 |Discriminant w/o length checks| 10 | 310|
-
-There's not much to say other than that the discriminant method has very little cost, especially compared to the scanner which took ~3k cycles.
 
 ### A basic message format
 Let's consider a simplified version of this message format. Each field consists of:
