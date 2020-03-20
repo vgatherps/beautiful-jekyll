@@ -6,10 +6,11 @@ title: Rapidly Distinguishing Between Variable-Layout Messages Using SIMD
 Some years ago, at a now-defunct company, I wrote a nifty SIMD scanner to quickly discover "interesting" fields in a complex message format.
 After getting the parse time around a microsecond, I considered my work finished and moved on.
 
-Thinking back, I realized most of these messages probably came in some set of fixed layouts instead of being truly dynamic.
+I recently realized most of these messages probably came in some set of fixed layouts instead of being truly dynamic.
 Instead of searching the whole message for individual entries,
 it should be possible to check for a given layout by examining a small subset of bytes.
-Using SIMD would then allow one to check an entire group of layouts in one go.
+
+It turns out this can be done very, very, efficiently - costing about ~40 cycles per message.
 
 The full code can be found [here](https://github.com/vgatherps/discriminant)
 
@@ -18,8 +19,8 @@ Since everybody loves benchmarks, here's a preview of the final results (in cycl
 
 |Test|Cached|Uncached|
 |----|------|--------|
-|Discriminant|20|330|
-|Discriminant w/o length checks| 10 | 310|
+|Discriminant|42|355|
+|Discriminant w/o length checks| 32 | 330|
 
 ### A basic message format
 Let's consider a simplified version of this message format. Each field consists of:
@@ -250,12 +251,12 @@ in two cache scenarios:
 These cases are both common - I might be processing my message after some code has been run on it, and would expect it to be in the cache. I might also be the first code to touch it from say a DMA buffer, where I would expect at best the find data in the L3 cache.
 
 The goal here is to beat 1 microsecond spent in the scanner, ~3k cycles.
-The results in cycles, with an estimated ~20 cycles removed for cycle measurement, are:
+The results from the discriminant, in cycles, without accounting for measurement overhead, are:
 
 |Test|Cached|Uncached|
 |----|------|--------|
-|With length checks|20|330|
-|Without length checks|10|310|
+|With length checks|42|355|
+|Without length checks|32|330|
 
 The results are pretty expected - and the discriminant costs are what I would expect from the generated code. Further, although doing the branchless length checking doubles the cost, it's an exceptionally minor cost in the best case.
 
