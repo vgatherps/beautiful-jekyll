@@ -21,6 +21,7 @@ Since everybody loves benchmarks, here's a preview of the final results (in cycl
 |----|------|--------|
 |Discriminant|42|355|
 |Discriminant w/o length checks| 32 | 330|
+|Optimal branching|30|310|
 
 ### A basic message format
 Let's consider a simplified version of this message format. Each field consists of:
@@ -238,17 +239,20 @@ Overall, my experience with constexpr was miles away from my past life in crazy 
 
 ### Benchmarks
 
-To see the performance, I benchmark two cases against a 729-byte message:
+To see the performance, I benchmark three cases against a single 729-byte message:
 
 1. The discriminant
 2. The discriminant without length checks
+3. A branching case that will predict optimally
 
 in two cache scenarios:
 
 1. My message is contained in the cache
 2. I've totally evicted my message from the cache
 
-These cases are both common - I might be processing my message after some code has been run on it, and would expect it to be in the cache. I might also be the first code to touch it from say a DMA buffer, where I would expect at best the find data in the L3 cache.
+These cases are both common - I might be processing my message after some code has been run on it, and would expect it to be in the cache.
+I might also be the first code to touch it from say a DMA buffer, where I would expect at best the find data in the L3 cache.
+The branching case is included to show what the latency would be if the processor can predict all the branching checks
 
 The goal here is to beat 1 microsecond spent in the scanner, ~3k cycles.
 The results from the discriminant, in cycles, without accounting for measurement overhead, are:
@@ -257,8 +261,11 @@ The results from the discriminant, in cycles, without accounting for measurement
 |----|------|--------|
 |With length checks|42|355|
 |Without length checks|32|330|
+|Optimal branching|30|310|
 
-The results are pretty expected - and the discriminant costs are what I would expect from the generated code. Further, although doing the branchless length checking doubles the cost, it's an exceptionally minor cost in the best case.
+Notably, the branchless version fare very well when compared to the branching version, even though all the branches should be predicted perfectly.
+This is likely in part to the fact that I wait for all instructions to complete when timing,
+which removes the benefits of speculating past the end. However, this still captures costs internal to the check.
 
 An interesting note is that the discriminant only pays the cost of 1 cache miss even though the entire message in in RAM.
 Since the discriminant deterministically schedules a set of loads no matter what the data is, it can fetch all the results in parallel.
