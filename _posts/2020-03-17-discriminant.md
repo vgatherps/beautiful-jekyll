@@ -252,20 +252,20 @@ in two cache scenarios:
 
 These cases are both common - I might be processing my message after some code has been run on it, and would expect it to be in the cache.
 I might also be the first code to touch it from say a DMA buffer, where I would expect at best the find data in the L3 cache.
-The branching case is included to show what the latency would be if the processor can predict all the branching checks
+
+I include a case where the branch tests the first character, and the will immediately exit in every case.
+Effectively, this only does a single check that will always be predicted true, making it a best-case representation of a branching discriminator.
 
 The goal here is to beat 1 microsecond spent in the scanner, ~3k cycles.
 The results from the discriminant, in cycles, without accounting for measurement overhead, are:
 
 |Test|Cached|Uncached|
 |----|------|--------|
-|With length checks|42|355|
+|With length checks|42|330|
 |Without length checks|32|330|
-|Optimal branching|30|310|
+|Optimal branching|27|290|
 
-Notably, the branchless version fare very well when compared to the branching version, even though all the branches should be predicted perfectly.
-This is likely in part to the fact that I wait for all instructions to complete when timing,
-which removes the benefits of speculating past the end. However, this still captures costs internal to the check.
+Notably, the branchless version fare very well when compared to the branching version, even though all the branches should be predicted perfectly and fewer cache lines are loaded.
 
 An interesting note is that the discriminant only pays the cost of 1 cache miss even though the entire message in in RAM.
 Since the discriminant deterministically schedules a set of loads no matter what the data is, it can fetch all the results in parallel.
