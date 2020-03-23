@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Rapidly Distinguishing Between Variable-Layout Messages Using SIMD
+title: Rapidly Distinguishing Variable Layout Messages
 ---
 
 Some years ago, at a now-defunct company, I wrote a nifty SIMD scanner to quickly discover "interesting" fields in a complex message format.
