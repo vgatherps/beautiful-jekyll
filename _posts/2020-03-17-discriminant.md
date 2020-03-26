@@ -15,7 +15,7 @@ It turns out this can be done very, very, efficiently - costing about ~40 cycles
 The full code can be found [here](https://github.com/vgatherps/discriminant)
 
 ### Benchmarks preview
-Since everybody loves benchmarks, here's a preview of the final results (in cycles):
+Since everybody loves benchmarks, here's a preview of the final results (in cycles per message parse):
 
 |Test|Cached|Uncached|
 |----|------|--------|
